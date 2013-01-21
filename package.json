@@ -1,7 +1,7 @@
 {
-  "name": "node-pioneer-avr",
+  "name": "pioneer-avr",
   "version": "0.0.1",
-  "description": "A node module for controlling a Pioneer receiver via IP protocol",
+  "description": "A node module for controlling a Pioneer AV receiver via IP protocol",
   "main": "pioneer-avr.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
