@@ -1,0 +1,21 @@
+{
+  "name": "node-pioneer-avr",
+  "version": "0.0.1",
+  "description": "A node module for controlling a Pioneer receiver via IP protocol",
+  "main": "pioneer-avr.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stormboy/node-pioneer-avr.git"
+  },
+  "keywords": [
+    "Pioneer",
+    "receiver",
+    "VSX"
+  ],
+  "author": "Warren Bloomer",
+  "license": "BSD",
+  "readmeFilename": "README.md"
+}
