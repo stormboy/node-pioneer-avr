@@ -3,12 +3,12 @@
  * Tested with VSX-2021
  */
 
-var util = require('util'),
-    net = require('net'),
+var util   = require('util'),
+    net    = require('net'),
     events = require('events');
 
 
-var TRACE = options.log;
+var TRACE = false;
 
 /**
  * Important include host and port.
@@ -27,7 +27,7 @@ var VSX = function(options) {
     this.inputNames = {};
     
     TRACE = options.log;
-}
+};
 
 util.inherits(VSX, events.EventEmitter);
 
@@ -47,7 +47,7 @@ VSX.prototype.connect = function(options) {
         handleEnd(self);
     });
     return client;
-}
+};
 
 /**
  * Turn unit power on or off
@@ -62,7 +62,7 @@ VSX.prototype.power = function(on) {
     else {
         this.client.write("PF\r");
     }
-}
+};
 
 /**
  * Turn mute on or off
@@ -77,7 +77,7 @@ VSX.prototype.mute = function(on) {
     else {
         this.client.write("MF\r");
     }
-}
+};
 
 /**
  * 
@@ -109,29 +109,29 @@ VSX.prototype.volume = function(db) {
         console.log("setting volume level: " + level);
     }
     this.client.write(level + "VL\r");
-}
+};
 
 VSX.prototype.volumeUp = function() {
     this.client.write("VU\r");
-}
+};
 
 VSX.prototype.volumeDown = function() {
     this.client.write("VD\r");
-}
+};
 
 /**
  * Set the input
  */
 VSX.prototype.selectInput = function(input) {
     this.client.write(input + "FN\r");
-}
+};
 
 /**
  * Set the listening mode
  */
 VSX.prototype.listeningMode = function(mode) {
     this.client.write("MF\r");
-}
+};
 
 
 
@@ -284,7 +284,7 @@ var Inputs = {
     adapter_port: "33",
     sirius: "27",
     hdmi_cyclic: "31",
-}
+};
 
 
 exports.VSX = VSX;
