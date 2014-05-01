@@ -9,6 +9,7 @@ var util   = require('util'),
 
 
 var TRACE = false;
+var DETAIL = false;		// detail logging flag
 
 /**
  * Important include host and port.
@@ -53,6 +54,28 @@ VSX.prototype.connect = function(options) {
 
     return client;
 };
+
+VSX.prototype.query = function() {	
+    var self = this;
+    
+    self.client.write("?P\r");		// query power state
+    self.client.write("?V\r");		// query volume state
+    self.client.write("?M\r");		// query mute state
+    self.client.write("?F\r");		// query selected input
+
+    // get input names
+	var timeout = 100;
+    for (var i in Inputs) {
+    	var inputId = Inputs[i];
+    	var getInputName = function(inputId, timeout) {
+    		setTimeout(function() {
+	            self.client.write("?RGB" + inputId + "\r");
+    		}, timeout);
+    	}
+    	getInputName(inputId, timeout);
+    	timeout += 100;
+    }
+}
 
 /**
  * Turn unit power on or off
@@ -132,6 +155,13 @@ VSX.prototype.selectInput = function(input) {
 };
 
 /**
+ * Query the input name
+ */
+VSX.prototype.queryInputName = function(inputId) {
+	this.client.write("?RGB" + inputId + "\r");
+}
+
+/**
  * Set the listening mode
  */
 VSX.prototype.listeningMode = function(mode) {
@@ -139,13 +169,18 @@ VSX.prototype.listeningMode = function(mode) {
 };
 
 
-
 function handleConnection(self, socket) {
     if (TRACE) {
         console.log("got connection.");
     }
+    
+    self.client.write("\r");    // wake
+    setTimeout(function() {
+    	self.query();
+        self.emit("connect");
+    }, 100);
+
     self.socket = socket;
-    self.emit("connect");
 }
 
 function handleData(self, d) {
@@ -185,24 +220,24 @@ function handleData(self, d) {
     else if (data.startsWith("FN")) {
         input = data.substr(2, 2);
         if (TRACE) {
-            console.log("got Input: " + input);
+            console.log("got input: " + input + " : " + self.inputNames[input]);
         }
-        self.emit("input", input);
+        self.emit("input", input, self.inputNames[input]);
     }
     else if (data.startsWith("SSA")) {
-        // if (TRACE) {
-            // console.log("got SSA: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got SSA: " + data);
+         }
     }
     else if (data.startsWith("APR")) {
-        // if (TRACE) {
-            // console.log("got APR: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got APR: " + data);
+         }
     }
     else if (data.startsWith("BPR")) {
-        // if (TRACE) {
-            // console.log("got BPR: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got BPR: " + data);
+         }
     }
     else if (data.startsWith("LM")) {       // listening mode
         var mode = data.substring(2);
@@ -211,39 +246,41 @@ function handleData(self, d) {
         }
     }
     else if (data.startsWith("FL")) {       // FL display information
-        // if (TRACE) {
-            // console.log("got FL: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got FL: " + data);
+         }
     }
     else if (data.startsWith("RGB")) {      // input name information. informs on input names
         // handle input info
         var inputId = data.substr(3, 2);
         for (input in Inputs) {
-            //console.log("checking input: " + input + " whether " + Inputs[input] + " == " + inputId);
             if (Inputs[input] == inputId) {
-                self.inputNames[input] = data.substr(6);
-                console.log("set input " + input + " to " + self.inputNames[input]);
                 // if (data.substr(5, 1) == "0") {
                     // console.log("default input name")
                 // }
+                self.inputNames[inputId] = data.substr(6);
+                if (TRACE && DETAIL) {
+                	console.log("set input " + input + " to " + self.inputNames[inputId]);
+                }
+                self.emit("inputName", inputId, self.inputNames[inputId]);
                 break;
             }
         } 
     }
     else if (data.startsWith("RGC")) {
-        // if (TRACE) {
-            // console.log("got RGC: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got RGC: " + data);
+         }
     }
     else if (data.startsWith("RGF")) {
-        // if (TRACE) {
-            // console.log("got RGF: " + data);
-        // }
+         if (TRACE && DETAIL) {
+             console.log("got RGF: " + data);
+         }
     }
-    else {
-        // if (TRACE) {
-            // console.log("got data: " + data);
-        // }
+    else if (data.length > 0) {
+        if (TRACE) {
+            console.log("got data: " + data);
+        }
     }
 }
 
@@ -297,7 +334,7 @@ var Inputs = {
     multi_ch: "12",
     adapter_port: "33",
     sirius: "27",
-    hdmi_cyclic: "31",
+    //hdmi_cyclic: "31",
 };
 
 

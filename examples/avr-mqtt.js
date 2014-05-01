@@ -4,7 +4,8 @@ var avr    = require("../pioneer-avr"),
 
 var TRACE = true;
 
-var options = {
+
+var defaultOptions = {
     log: true,
     vsx: {
 	    host: "192.168.0.9",
@@ -14,32 +15,39 @@ var options = {
     	"host" : "192.168.0.23",
     	"port" : 1883
     },
-    mqttPaths : {
-    	powerIn   : "/house/lounge/avr/power/in",
-    	powerOut  : "/house/lounge/avr/power/out",
-    	volumeIn  : "/house/lounge/avr/volume/in",
-    	volumeOut : "/house/lounge/avr/volume/out",
-    	muteIn    : "/house/lounge/avr/mute/in",
-    	muteOut   : "/house/lounge/avr/mute/out",
-    	sourceIn  : "/house/lounge/avr/source/in",
-    	sourceOut : "/house/lounge/avr/source/out",
-    }
 };
 
 var AvrMqtt = function(options) {
 	var self = this;
 	
-	this.TOPIC_powerIn   = options.mqttPaths.powerIn   || "/house/av/avr/power/in";		// power control
-	this.TOPIC_powerOut  = options.mqttPaths.powerOut  || "/house/av/avr/power/out";	// power state
-	this.TOPIC_volumeIn  = options.mqttPaths.volumeIn  || "/house/av/avr/volume/in";	// volume control
-	this.TOPIC_volumeOut = options.mqttPaths.volumeOut || "/house/av/avr/volume/out";	// volume state
-	this.TOPIC_muteIn    = options.mqttPaths.muteIn    || "/house/av/avr/mute/in";
-	this.TOPIC_muteOut   = options.mqttPaths.muteOut   || "/house/av/avr/mute/out";
-	this.TOPIC_sourceIn  = options.mqttPaths.sourceIn  || "/house/av/avr/source/in";
-	this.TOPIC_sourceOut = options.mqttPaths.sourceOut || "/house/av/avr/source/out";
-
-	this.state = { power : {}, volume : {}, mute : {}, source : {}};
+	options = options || defaultOptions;
 	
+    var rootTopic = options.vsx.uuid ? "/meem/" + options.vsx.uuid + "/" : "/house/lounge/avr/";
+	
+    options.mqttPaths = options.mqttPaths || {
+    	powerIn    : rootTopic + "power/in",
+    	powerOut   : rootTopic + "power/out",
+    	volumeIn   : rootTopic + "volume/in",
+    	volumeOut  : rootTopic + "volume/out",
+    	muteIn     : rootTopic + "mute/in",
+    	muteOut    : rootTopic + "mute/out",
+    	sourceIn   : rootTopic + "source/in",
+    	sourceOut  : rootTopic + "source/out",
+    	sourcesOut : rootTopic + "sources/out",		// to send the available input sources
+    }
+
+	this.TOPIC_powerIn   = options.mqttPaths.powerIn    || "/house/av/avr/power/in";	// power control
+	this.TOPIC_powerOut  = options.mqttPaths.powerOut   || "/house/av/avr/power/out";	// power state
+	this.TOPIC_volumeIn  = options.mqttPaths.volumeIn   || "/house/av/avr/volume/in";	// volume control
+	this.TOPIC_volumeOut = options.mqttPaths.volumeOut  || "/house/av/avr/volume/out";	// volume state
+	this.TOPIC_muteIn    = options.mqttPaths.muteIn     || "/house/av/avr/mute/in";
+	this.TOPIC_muteOut   = options.mqttPaths.muteOut    || "/house/av/avr/mute/out";
+	this.TOPIC_sourceIn  = options.mqttPaths.sourceIn   || "/house/av/avr/source/in";
+	this.TOPIC_sourceOut = options.mqttPaths.sourceOut  || "/house/av/avr/source/out";
+	this.TOPIC_sourcesOut = options.mqttPaths.sourcesOut || "/house/av/avr/sources/out";
+
+	this.state = { power : {}, volume : {}, mute : {}, source : {}, sources : {} };
+
 	this.receiver = new avr.VSX(options.vsx);
 	this.receiver.on("connect", function() {
 		self._handleAvrConnect(options.mqtt);
@@ -61,6 +69,7 @@ AvrMqtt.prototype.subscribe = function() {
 		this.mqttClient.subscribe(this.TOPIC_volumeOut+"?");
 		this.mqttClient.subscribe(this.TOPIC_muteOut+"?");
 		this.mqttClient.subscribe(this.TOPIC_sourceOut+"?");
+		this.mqttClient.subscribe(this.TOPIC_sourcesOut+"?");
 	}
 };
 
@@ -133,12 +142,32 @@ AvrMqtt.prototype._handleAvrConnect = function(options) {
 			JSON.stringify(self.state.mute)
 		);
 	});
-	self.receiver.on('input', function(source) {
-		self.state.source = { value : source };
+	self.receiver.on('input', function(source, name) {
+		self.state.source = { value : source, name: name };
 		self.mqttClient.publish(
 			self.TOPIC_sourceOut, 
 			JSON.stringify(self.state.source)
 		);
+	});
+	self.receiver.on('inputName', function(id, name) {
+		// update and send available sources
+		if (TRACE) {
+			console.log("VSX got source: " + id + " : " + name);
+		}
+		self.state.sources[id] = name;
+		self.mqttClient.publish(
+				self.TOPIC_sourcesOut, 
+				JSON.stringify(self.state.sources)
+			);
+
+		// if the name is for the current selected source, then send input source state
+		if (self.state.source && self.state.source.value == id) {
+			self.state.source = { value : id, name: name };
+			self.mqttClient.publish(
+				self.TOPIC_sourceOut, 
+				JSON.stringify(self.state.source)
+			);
+		}
 	});
 };
 
@@ -174,6 +203,12 @@ AvrMqtt.prototype._handleContentRequest = function(topic, payload) {
 			console.log("sending sourceOut content: " + self.state.source);
 		}
 		self.mqttClient.publish(responseTopic, JSON.stringify(self.state.source));
+	}
+	else if (requestTopic == self.TOPIC_sourcesOut) {
+		if (TRACE) {
+			console.log("sending sourcesOut content: " + self.state.sources);
+		}
+		self.mqttClient.publish(responseTopic, JSON.stringify(self.state.sources));
 	}
 };
 
