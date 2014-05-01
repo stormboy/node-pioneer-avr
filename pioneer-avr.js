@@ -46,6 +46,11 @@ VSX.prototype.connect = function(options) {
     client.on("end", function () {
         handleEnd(self);
     });
+
+    client.on("error", function(err) {
+        handleError(self, err);
+    });
+
     return client;
 };
 
@@ -89,7 +94,7 @@ VSX.prototype.volume = function(db) {
         console.log("setting volume db: " + db);
     }
     var val = 0;
-    if (typeof db === "undefined" || db == null) {
+    if (typeof db === "undefined" || db === null) {
         val = 0;
     }
     else if (db < -80) {
@@ -144,9 +149,9 @@ function handleConnection(self, socket) {
 }
 
 function handleData(self, d) {
-    
+    var input;    
     var data = d.toString(); // make sure it's a string
-    length = data.lastIndexOf('\r');
+    var length = data.lastIndexOf('\r');
     data = data.substr(0, length);
 
     // TODO implement a message to handler mapping instead of this big if-then statement
@@ -178,7 +183,7 @@ function handleData(self, d) {
         self.emit("mute", mute);
     }
     else if (data.startsWith("FN")) {
-        var input = data.substr(2, 2);
+        input = data.substr(2, 2);
         if (TRACE) {
             console.log("got Input: " + input);
         }
@@ -246,7 +251,16 @@ function handleEnd(self) {
     if (TRACE) {
         console.log("connection ended");
     }
-    // TODO should we try to reconnect if not a deliberate disconnection?
+
+    self.emit("end");
+}
+
+function handleError(self, err) {
+    if (TRACE) {
+        console.log("connection error: " + err.message);
+    }
+
+    self.emit("error", err);
 }
 
 if (typeof String.prototype.startsWith != 'function') {
