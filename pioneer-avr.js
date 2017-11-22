@@ -3,13 +3,13 @@
  * Tested with VSX-2021
  */
 
-var util   = require('util'),
-    net    = require('net'),
+var util = require('util'),
+    net = require('net'),
     events = require('events');
 
 
 var TRACE = false;
-var DETAIL = false;		// detail logging flag
+var DETAIL = false; // detail logging flag
 
 /**
  * Important include host and port.
@@ -21,12 +21,12 @@ var DETAIL = false;		// detail logging flag
  *  };
  */
 var VSX = function(options) {
-    events.EventEmitter.call(this);            // inherit from EventEmitter
-    
+    events.EventEmitter.call(this); // inherit from EventEmitter
+
     this.client = this.connect(options);
-    
+
     this.inputNames = {};
-    
+
     TRACE = options.log;
 };
 
@@ -36,15 +36,15 @@ VSX.prototype.connect = function(options) {
     var self = this;
     var client = net.connect(options);
 
-    client.on("connect", function (socket) {
+    client.on("connect", function(socket) {
         handleConnection(self, socket);
     });
-    
+
     client.on("data", function(data) {
         handleData(self, data);
-     });
+    });
 
-    client.on("end", function () {
+    client.on("end", function() {
         handleEnd(self);
     });
 
@@ -55,25 +55,25 @@ VSX.prototype.connect = function(options) {
     return client;
 };
 
-VSX.prototype.query = function() {	
+VSX.prototype.query = function() {
     var self = this;
-    
-    self.client.write("?P\r");		// query power state
-    self.client.write("?V\r");		// query volume state
-    self.client.write("?M\r");		// query mute state
-    self.client.write("?F\r");		// query selected input
+
+    self.client.write("?P\r"); // query power state
+    self.client.write("?V\r"); // query volume state
+    self.client.write("?M\r"); // query mute state
+    self.client.write("?F\r"); // query selected input
 
     // get input names
-	var timeout = 100;
+    var timeout = 100;
     for (var i in Inputs) {
-    	var inputId = Inputs[i];
-    	var getInputName = function(inputId, timeout) {
-    		setTimeout(function() {
-	            self.client.write("?RGB" + inputId + "\r");
-    		}, timeout);
-    	}
-    	getInputName(inputId, timeout);
-    	timeout += 100;
+        var inputId = Inputs[i];
+        var getInputName = function(inputId, timeout) {
+            setTimeout(function() {
+                self.client.write("?RGB" + inputId + "\r");
+            }, timeout);
+        }
+        getInputName(inputId, timeout);
+        timeout += 100;
     }
 }
 
@@ -86,8 +86,7 @@ VSX.prototype.power = function(on) {
     }
     if (on) {
         this.client.write("PO\r");
-    }
-    else {
+    } else {
         this.client.write("PF\r");
     }
 };
@@ -101,8 +100,7 @@ VSX.prototype.mute = function(on) {
     }
     if (on) {
         this.client.write("MO\r");
-    }
-    else {
+    } else {
         this.client.write("MF\r");
     }
 };
@@ -119,14 +117,11 @@ VSX.prototype.volume = function(db) {
     var val = 0;
     if (typeof db === "undefined" || db === null) {
         val = 0;
-    }
-    else if (db < -80) {
+    } else if (db < -80) {
         val = 0;
-    }
-    else if (db > 12) {
+    } else if (db > 12) {
         val = 185;
-    }
-    else {
+    } else {
         val = Math.round((db * 2) + 161);
     }
     var level = val.toString();
@@ -158,7 +153,7 @@ VSX.prototype.selectInput = function(input) {
  * Query the input name
  */
 VSX.prototype.queryInputName = function(inputId) {
-	this.client.write("?RGB" + inputId + "\r");
+    this.client.write("?RGB" + inputId + "\r");
 }
 
 /**
@@ -168,15 +163,64 @@ VSX.prototype.listeningMode = function(mode) {
     this.client.write("MF\r");
 };
 
+/**
+ * Press the enter button in HMG
+ */
+VSX.prototype.buttonHMGEnter = function() {
+    this.client.write("30NW\r");
+};
+
+/**
+ * Press the return button in HMG
+ */
+VSX.prototype.buttonHMGReturn = function() {
+    this.client.write("31NW\r");
+};
+
+/**
+ * Press the play button in HMG
+ */
+VSX.prototype.buttonHMGPlay = function() {
+    this.client.write("10NW\r");
+};
+
+/**
+ * Press the stop button in HMG
+ */
+VSX.prototype.buttonHMGStop = function() {
+    this.client.write("20NW\r");
+};
+
+/**
+ * Press the Up button in HMG
+ */
+VSX.prototype.buttonHMGUp = function() {
+    this.client.write("26NW\r");
+};
+
+/**
+ * Press the Down button in HMG
+ */
+VSX.prototype.buttonHMGDown = function() {
+    this.client.write("27NW\r");
+};
+
+/**
+ * Press the '1' button in HMG
+ */
+VSX.prototype.buttonHMG1 = function() {
+    this.client.write("00NW\r");
+};
+
 
 function handleConnection(self, socket) {
     if (TRACE) {
         console.log("got connection.");
     }
-    
-    self.client.write("\r");    // wake
+
+    self.client.write("\r"); // wake
     setTimeout(function() {
-    	self.query();
+        self.query();
         self.emit("connect");
     }, 100);
 
@@ -184,100 +228,88 @@ function handleConnection(self, socket) {
 }
 
 function handleData(self, d) {
-    var input;    
+    var input;
     var data = d.toString(); // make sure it's a string
     var length = data.lastIndexOf('\r');
     data = data.substr(0, length);
 
     // TODO implement a message to handler mapping instead of this big if-then statement
 
-    if (data.startsWith("PWR")) {        // power status
-        var pwr = (data == "PWR0");   // PWR0 = on, PWR1 = off
+    if (data.startsWith("PWR")) { // power status
+        var pwr = (data == "PWR0"); // PWR0 = on, PWR1 = off
         if (TRACE) {
             console.log("got power: " + pwr);
         }
         self.emit("power", pwr);
-    }
-    else if (data.startsWith("VOL")) {   // volume status
+    } else if (data.startsWith("VOL")) { // volume status
         var vol = data.substr(3, 3);
-        
+
         // translate to dB.
         var db = (parseInt(vol) - 161) / 2;
-        
+
         if (TRACE) {
             console.log("got volume: " + db + "dB (" + vol + ")");
         }
-        
+
         self.emit("volume", db);
-    }
-    else if (data.startsWith("MUT")) {   // mute status
-        var mute = data.endsWith("0");  // MUT0 = muted, MUT1 = not muted
+    } else if (data.startsWith("MUT")) { // mute status
+        var mute = data.endsWith("0"); // MUT0 = muted, MUT1 = not muted
         if (TRACE) {
             console.log("got mute: " + mute);
         }
         self.emit("mute", mute);
-    }
-    else if (data.startsWith("FN")) {
+    } else if (data.startsWith("FN")) {
         input = data.substr(2, 2);
         if (TRACE) {
             console.log("got input: " + input + " : " + self.inputNames[input]);
         }
         self.emit("input", input, self.inputNames[input]);
-    }
-    else if (data.startsWith("SSA")) {
-         if (TRACE && DETAIL) {
-             console.log("got SSA: " + data);
-         }
-    }
-    else if (data.startsWith("APR")) {
-         if (TRACE && DETAIL) {
-             console.log("got APR: " + data);
-         }
-    }
-    else if (data.startsWith("BPR")) {
-         if (TRACE && DETAIL) {
-             console.log("got BPR: " + data);
-         }
-    }
-    else if (data.startsWith("LM")) {       // listening mode
+    } else if (data.startsWith("SSA")) {
+        if (TRACE && DETAIL) {
+            console.log("got SSA: " + data);
+        }
+    } else if (data.startsWith("APR")) {
+        if (TRACE && DETAIL) {
+            console.log("got APR: " + data);
+        }
+    } else if (data.startsWith("BPR")) {
+        if (TRACE && DETAIL) {
+            console.log("got BPR: " + data);
+        }
+    } else if (data.startsWith("LM")) { // listening mode
         var mode = data.substring(2);
         if (TRACE) {
             console.log("got listening mode: " + mode);
         }
-    }
-    else if (data.startsWith("FL")) {       // FL display information
-         if (TRACE && DETAIL) {
-             console.log("got FL: " + data);
-         }
-    }
-    else if (data.startsWith("RGB")) {      // input name information. informs on input names
+    } else if (data.startsWith("FL")) { // FL display information
+        if (TRACE && DETAIL) {
+            console.log("got FL: " + data);
+        }
+    } else if (data.startsWith("RGB")) { // input name information. informs on input names
         // handle input info
         var inputId = data.substr(3, 2);
         for (input in Inputs) {
             if (Inputs[input] == inputId) {
                 // if (data.substr(5, 1) == "0") {
-                    // console.log("default input name")
+                // console.log("default input name")
                 // }
                 self.inputNames[inputId] = data.substr(6);
                 if (TRACE && DETAIL) {
-                	console.log("set input " + input + " to " + self.inputNames[inputId]);
+                    console.log("set input " + input + " to " + self.inputNames[inputId]);
                 }
                 self.emit("inputName", inputId, self.inputNames[inputId]);
                 break;
             }
-        } 
-    }
-    else if (data.startsWith("RGC")) {
-         if (TRACE && DETAIL) {
-             console.log("got RGC: " + data);
-         }
-    }
-    else if (data.startsWith("RGF")) {
-         if (TRACE && DETAIL) {
-             console.log("got RGF: " + data);
-         }
-    }
-    else if (data.length > 0) {
+        }
+    } else if (data.startsWith("RGC")) {
+        if (TRACE && DETAIL) {
+            console.log("got RGC: " + data);
+        }
+    } else if (data.startsWith("RGF")) {
+        if (TRACE && DETAIL) {
+            console.log("got RGF: " + data);
+        }
+    } else if (data.length > 0) {
         if (TRACE) {
             console.log("got data: " + data);
         }
@@ -301,15 +333,15 @@ function handleError(self, err) {
 }
 
 if (typeof String.prototype.startsWith != 'function') {
-  String.prototype.startsWith = function (str){
-    return this.slice(0, str.length) == str;
-  };
+    String.prototype.startsWith = function(str) {
+        return this.slice(0, str.length) == str;
+    };
 }
 
 if (typeof String.prototype.endsWith != 'function') {
-  String.prototype.endsWith = function (str){
-    return this.slice(-str.length) == str;
-  };
+    String.prototype.endsWith = function(str) {
+        return this.slice(-str.length) == str;
+    };
 }
 
 var Inputs = {
