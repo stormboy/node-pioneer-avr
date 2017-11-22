@@ -4,7 +4,7 @@ node-pioneer-avr
 A node module for controlling a Pioneer audio/video receiver via the IP protocol documented at
 http://www.pioneerelectronics.com/StaticFiles/PUSA/Files/Home%20Custom%20Install/SC-37-RS232.pdf
 
-Tested on a VSX-2021
+Tested on a VSX-921
 
 ## TO DO
 - Discover via SSDP
