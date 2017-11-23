@@ -209,7 +209,7 @@ VSX.prototype.buttonHMGDown = function() {
  * Press the '1' button in HMG
  */
 VSX.prototype.buttonHMG1 = function() {
-    this.client.write("00NW\r");
+    this.client.write("01NW\r");
 };
 
 
