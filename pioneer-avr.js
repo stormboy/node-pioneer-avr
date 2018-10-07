@@ -60,7 +60,10 @@ VSX.prototype.query = function() {
 
     self.client.write("?P\r"); // query power state
     self.client.write("?V\r"); // query volume state
+    self.client.write("?ZV\r"); // query volume state
+    self.client.write("?AP\r"); // query power state
     self.client.write("?M\r"); // query mute state
+    self.client.write("?Z2M\r"); // query mute state
     self.client.write("?F\r"); // query selected input
 
     // get input names
@@ -92,6 +95,19 @@ VSX.prototype.power = function(on) {
 };
 
 /**
+ * Turn unit power zone2 on or off
+ */
+VSX.prototype.zpower = function(on) {
+    if (TRACE) {
+        console.log("turning power: " + on);
+    }
+    if (on) {
+        this.client.write("APO\r");
+    } else {
+        this.client.write("APF\r");
+    }
+};
+/**
  * Turn mute on or off
  */
 VSX.prototype.mute = function(on) {
@@ -102,6 +118,19 @@ VSX.prototype.mute = function(on) {
         this.client.write("MO\r");
     } else {
         this.client.write("MF\r");
+    }
+};
+/**
+ * Turn mute on or off zone2
+ */
+VSX.prototype.zmute = function(on) {
+    if (TRACE) {
+        console.log("turning mute: " + on);
+    }
+    if (on) {
+        this.client.write("Z2MO\r");
+    } else {
+        this.client.write("Z2MF\r");
     }
 };
 
@@ -134,6 +163,31 @@ VSX.prototype.volume = function(db) {
     this.client.write(level + "VL\r");
 };
 
+VSX.prototype.zvolume = function(db) {
+    // [0 .. 81] 1 = -80dB , 81 = 0dB, 00 = ---dB
+    if (TRACE) {
+        console.log("setting zvolume db: " + db);
+    }
+    var val = 0;
+    if (typeof db === "undefined" || db === null) {
+        val = 0;
+    } else if (db < -80) {
+        val = 0; 
+    } else if (db > 0) {
+        val = 81; 
+    } else {
+        val = Math.round(db  + 81 )   ;
+    }
+    var level = val.toString();
+    while (level.length < 2) {
+        level = "0" + level;
+    }
+    if (TRACE) {
+        console.log("setting zvolume level: " + level);
+    }
+    this.client.write(level + "ZV\r");
+};
+
 VSX.prototype.volumeUp = function() {
     this.client.write("VU\r");
 };
@@ -142,6 +196,13 @@ VSX.prototype.volumeDown = function() {
     this.client.write("VD\r");
 };
 
+VSX.prototype.zvolumeUp = function() {
+    this.client.write("ZU\r");
+};
+
+VSX.prototype.zvolumeDown = function() {
+    this.client.write("ZD\r");
+};
 /**
  * Set the input
  */
@@ -149,6 +210,9 @@ VSX.prototype.selectInput = function(input) {
     this.client.write(input + "FN\r");
 };
 
+VSX.prototype.selectZInput = function(input) {
+    this.client.write(input + "ZS\r");
+};
 /**
  * Query the input name
  */
@@ -241,7 +305,27 @@ function handleData(self, d) {
             console.log("got power: " + pwr);
         }
         self.emit("power", pwr);
-    } else if (data.startsWith("VOL")) { // volume status
+    } 
+        else if (data.startsWith("APR")) { // power status Zone2
+        var pwr = (data == "APR0"); // APR0 = on, APR1 = off
+        if (TRACE) {
+            console.log("got zpower: " + pwr);
+        }
+        self.emit("zpower", pwr);
+    } 
+	else if (data.startsWith("ZV")) { // volume status zone2
+        var vol = data.substr(2, 3);
+
+        // translate to dB.
+        var db = (parseInt(vol) - 81) ;
+
+        if (TRACE) {
+            console.log("got zvolume: " + db + "dB (" + vol + ")");
+        }
+
+        self.emit("zvolume", db);
+    } 
+	else if (data.startsWith("VOL")) { // volume status
         var vol = data.substr(3, 3);
 
         // translate to dB.
@@ -252,19 +336,36 @@ function handleData(self, d) {
         }
 
         self.emit("volume", db);
-    } else if (data.startsWith("MUT")) { // mute status
+    } 
+	else if (data.startsWith("MUT")) { // mute status
         var mute = data.endsWith("0"); // MUT0 = muted, MUT1 = not muted
         if (TRACE) {
             console.log("got mute: " + mute);
         }
         self.emit("mute", mute);
-    } else if (data.startsWith("FN")) {
+    } 
+	else if (data.startsWith("Z2MUT")) { // mute status
+        var mute = data.endsWith("0"); // MUT0 = muted, MUT1 = not muted
+        if (TRACE) {
+            console.log("got zmute: " + mute);
+        }
+        self.emit("zmute", mute);
+    } 
+	else if (data.startsWith("FN")) {
         input = data.substr(2, 2);
         if (TRACE) {
             console.log("got input: " + input + " : " + self.inputNames[input]);
         }
         self.emit("input", input, self.inputNames[input]);
-    } else if (data.startsWith("SSA")) {
+    } 
+	else if (data.startsWith("Z2F")) {
+        input = data.substr(3, 2);
+        if (TRACE) {
+            console.log("got input: " + input + " : " + self.inputNames[input]);
+        }
+        self.emit("zinput", input, self.inputNames[input]);
+    } 
+	else if (data.startsWith("SSA")) {
         if (TRACE && DETAIL) {
             console.log("got SSA: " + data);
         }
@@ -348,6 +449,7 @@ var Inputs = {
     dvd: "04",
     bd: "25",
     tv_sat: "05",
+    kabel: "06",
     dvr_bdr: "15",
     video_1: "10",
     video_2: "14",
